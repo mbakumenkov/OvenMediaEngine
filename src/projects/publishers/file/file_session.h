@@ -44,6 +44,7 @@ namespace pub
 		bool IsSupportCodec(const ov::String output_format, const cmn::MediaCodecId codec_id);
 		std::shared_ptr<ffmpeg::Writer> CreateWriter();
 		std::shared_ptr<ffmpeg::Writer> GetWriter();
+		std::shared_ptr<ffmpeg::Writer> TakeWriter();
 		void DestroyWriter();
 
 	private:

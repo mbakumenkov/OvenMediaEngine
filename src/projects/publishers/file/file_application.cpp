@@ -240,7 +240,17 @@ namespace pub
 	// Called By API
 	std::shared_ptr<ov::Error> FileApplication::RecordStart(const std::shared_ptr<info::Record> record)
 	{
-		return RecordStartInternal(record);
+		std::shared_ptr<ov::Error> result = RecordStartInternal(record);
+		if (result->GetCode() == FilePublisher::FilePublisherStatusCode::Success)
+		{
+			auto stream = std::static_pointer_cast<FileStream>(GetStream(record->GetStreamName()));
+			if (stream != nullptr && stream->GetState() == pub::Stream::State::STARTED)
+			{
+				SessionControllInternal(stream, record);
+			}
+		}
+
+		return result;
 	}
 
 	std::shared_ptr<ov::Error> FileApplication::RecordStartInternal(const std::shared_ptr<info::Record> &record)

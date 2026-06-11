@@ -216,6 +216,16 @@ namespace pub
 			}
 		}
 
+		// Check if any tracks were actually added to the writer
+		if (writer->GetTrackCountByType(cmn::MediaType::Video) == 0 && writer->GetTrackCountByType(cmn::MediaType::Audio) == 0)
+		{
+			SetState(SessionState::Error);
+			record->SetState(info::Record::RecordState::Error);
+			logte("No tracks were added to the writer. Cannot start recording. %s", record->GetInfoString().CStr());
+			DestroyWriter();
+			return false;
+		}
+
 		logtd("Create temporary file(%s) and default track id(%d)", writer->GetUrl().CStr(), _default_track);
 
 		if (writer->Start() == false)
@@ -252,7 +262,8 @@ namespace pub
 
 	bool FileSession::StopRecord()
 	{
-		auto writer = GetWriter();
+		// Atomically take ownership of the writer to prevent concurrent stop calls
+		auto writer = TakeWriter();
 		if (writer != nullptr)
 		{
 			writer->Stop();
@@ -323,13 +334,11 @@ namespace pub
 				logtd("Appends the recording result to the information file. path: %s", info_path.CStr());
 
 				record->SetState(info::Record::RecordState::Stopped);
-				
+
 				logtd("Recording Completed. %s", record->GetInfoString().CStr());
-								
+
 				record->IncreaseSequence();
 			}
-
-			DestroyWriter();
 		}
 
 		return true;
@@ -578,6 +587,14 @@ namespace pub
 	{
 		std::shared_lock<std::shared_mutex> lock(_writer_mutex);
 		return _writer;
+	}
+
+	std::shared_ptr<ffmpeg::Writer> FileSession::TakeWriter()
+	{
+		std::lock_guard<std::shared_mutex> lock(_writer_mutex);
+		auto writer = std::move(_writer);
+		_writer = nullptr;
+		return writer;
 	}
 
 	bool FileSession::IsSupportCodec(const ov::String output_format, const cmn::MediaCodecId codec_id)
